@@ -1,0 +1,500 @@
+---
+title: "Data overview project"
+author: "박진아"
+date: '2021 5 13 '
+output:
+  word_document: default
+  html_document: default
+---
+## 주제
+
+###  외국인 유학생 교육서비스 수출의 유치현황 및 문제점 분석과 개선방안 제시 
+
+### 주제 선정배경
+국제화 경제에서는 국내 소비에만 초점을 맞추기 보다 서비스 수출이라는 개념에서 '서비스 공급의 제2형태'를 주목하고 있습니다. 서비스 공급의 제 2형태의 예시 중 하나는 외국인 유학생을 통해 교육서비스 수출에 장기적인 성장과 잠재력을 의미합니다. 교육서비스는 경제적 효과와 노동시장의 파급력에 기여함으로써 가치는 더욱더 중요해지고 있습니다. 이렇듯 한국의 교육서비스의 수출 성장은 점점 증가하고 있지만, 최근 코로나19로 인해 외국인 유학생수가 줄어들며 그들의 유치관리에 대한 문제점이 대두되고 있습니다. 따라서 저는 이러한 상황과 비례하여 한국이 외국인 유학생들의 교육서비스 창출을 얼마나 잘 관리되고 있는지 의구심이 생겼으며 외국인 유학생 유치현황과 관련 문제점을 여러 측면에서 연구할 필요성을 느껴 이 주제를 선정하게 되었습니다.  더불어 경영 경제를 포괄하는 사회문제를 분석하고 해결하는 능력을 소양하는 것이 e비즈니스학과와 연계되어있다고 생각하여 이 주제를 선정하게 되었습니다.  
+
+### 목차 
+1. 외국인 유학생 유치현황 및 유치 목적 요인 회귀분석  
+
+2. 시도별 대학교별 외국인 유학생 수 지도로 구현  
+
+3. 학과계열별 외국인 유학생 수 + 학위과정별로 출신대륙 분포 시각화  
+
+4. 외국인 유학생 언어능력 충족비율 (TOPIK 4급이상 학생비율)분석  
+
+5. '외국인 유학생 유치 문제' 키워드 웹 크롤링& 텍스트 마이닝  
+
+6. 외국인 중도 탈락률와 불법체류률의 상관관계   
+
+7. 기숙사, 장학금, 영어전용강좌의 유무와 외국인 중도탈락 수의 관계 (분산분석)  
+
+
+### 1. 외국인 유학생 유치현황 및 유치 목적 요인 회귀분석 
+```{r message=FALSE, warning=FALSE}
+
+library(ggplot2)
+library(tidyverse)  
+library(gridExtra)
+
+df <- read.table(file = "외국인 유학생과 고정부채 비율.txt", header=TRUE, sep=",", fileEncoding='CP949')  
+
+# 연도별 외국인 유학생 비율 데이터와 고정부채 비율데이터 분리 및 정제
+student_count <- df[c(-13,-14),c(1,2,3,4)]
+colnames(student_count)[3]<- '경기/인천'
+student_count <-student_count %>% gather('지역','외국인 유학생 비중',2:4)
+student_count1 <- df[c(7:12),c(1,2,3,4)]  
+colnames(student_count1)[3]<- '경기/인천'
+student_count1 <-student_count1 %>% gather('지역','외국인 유학생 비중',2:4)
+#fl = fixed liablities 고정부채 변수설정
+fl <- df[c(-13,-14),c(1,5,6,7)]
+colnames(fl)<- c('연도', '서울', '경기/인천', '비수도권')
+fl <-fl%>% gather('지역','고정 부채률',2:4)
+fl1 <- df[c(7:12),c(1,5,6,7)]  
+colnames(fl1)<- c('연도', '서울', '경기/인천', '비수도권')
+fl1 <-fl1%>% gather('지역','고정 부채률',2:4)
+
+#연도별 외국인 유학생 비율 그래프
+student_graph <-ggplot(student_count) +
+  aes(x = 연도, y = `외국인 유학생 비중`, colour = 지역, group=지역) +
+  geom_line(size = 1.5) +
+  geom_point(size= 3)+
+  geom_vline(xintercept =(연도='2014'), color ="red", linetype = 2)+
+  labs(title="연도별 외국인 유학생 비중")+
+  theme(axis.text.x=element_text(angle=90, hjust=1,vjust = 0.1, size=2))+
+  theme_minimal()
+
+#연도별 고정부채 평균값 그래프
+fl_graph <-ggplot(fl) +
+  aes(x = 연도, y = `고정 부채률`, colour = 지역, group=지역) +
+  geom_line(size = 1.5) +
+  geom_point(size= 3)+
+  geom_vline(xintercept =(연도='2014'), color ="red", linetype = 2)+
+  labs(title="연도별 고정부채 비율의 평균값")+
+  theme(axis.text.x=element_text(angle=90, hjust=1,vjust = 0.1, size=2))+
+  theme_minimal()
+
+grid.arrange(student_graph,fl_graph, nrow=2)
+```
+
+__분석결과__  
+연도별 외국인 유학생 비율 그래프 분석 결과 2014년부터 수도권, 비수도권 모두 외국인 유학생 비중이 증가하고 있음을 알 수 있습니다.  유치 목적 요인으로 대학교의 재정을 선택하여 데이터를 분석해보았습니다. 그 결과 2014년부터 2016년까지 대체적으로 고정부채 비율의 평균값이 감소하다 이후 지역마다 불규칙한 양상을 띄고 있습니다.
+
+```{r message=FALSE, warning=FALSE}
+library(ggrepel)  
+#최근4개년도 연도별 외국인 유학생 비중
+student_graph1 <-ggplot(student_count1) +
+  aes(x = 연도, y = `외국인 유학생 비중`, colour = 지역, group=지역) +
+  geom_line(size = 1.2) +
+  geom_point(shape = 21,
+             size = 3,
+             stroke = 1.2,
+             color = 'red',
+             fill = 'white') + 
+  ylim(0,6)+
+  geom_label_repel(mapping = aes(label = `외국인 유학생 비중`),
+             hjust = 1.3,
+             size = 4,
+            fontface = 'bold')+
+  geom_vline(xintercept =(연도=c('2014', '2017','2019')), color ="red", linetype = 2)+
+  labs(title="연도별 외국인 유학생 비중")+
+  theme(axis.text.x=element_text(angle=90, hjust=1,vjust = 0.1, size=2))+
+  theme_minimal()  
+
+# 2014~2019년 연도별 고정부채 비율의 평균값
+fl_graph1 <-ggplot(fl1) +
+  aes(x = 연도, y = `고정 부채률`, colour = 지역, group=지역) +
+  geom_line(size = 1.2) +
+    geom_point(shape = 21,
+             size = 3,
+             stroke = 1.2,
+             color = 'red',
+             fill = 'white') + 
+   ylim(2,6)+  
+  geom_label_repel(mapping = aes(label = `고정 부채률`),
+             hjust = 1.3,
+             size = 4,
+            fontface = 'bold')+
+  geom_vline(xintercept =(연도=c('2014', '2017','2019')), color ="red", linetype = 2)+
+  labs(title="연도별 고정부채 비율의 평균값")+
+  theme(axis.text.x=element_text(angle=90, hjust=1,vjust = 0.1, size=1))+
+  theme_minimal() 
+
+grid.arrange(fl_graph1,student_graph1, nrow=2)
+```
+
+__분석결과__  
+더 정확하게 분석하기 위해 2014년~2019년의 변화양상 추이를 비교해보았습니다.  
+서울권에서 고정 부채비율이 2%~최대4%로 증가했으며 그에따라 외국인 유학생들의 비중은 2%~5%로 가장 큰 폭의 증감률을 보였습니다.  
+그러나 경기/인천 지역에서 고정부채률의 평균값은 약 6%에서 4.5%사이로 감소율를  보였으나 외국인 유학생들의 비중은 0.89~3.6%사이의 대체적인 증감을 보였습니다.  
+또한 비수도권 지역에서는 고정부채률 평균값은 3.4%에서 2.3%로 서서히 감소하고 외국인 유학생들의 비중은 1%~2.5%사이의 증감을 보였습니다. 
+그결과, 서울지역은 고정부채비율이 연도별로 증가함에 따라 외국인 유학생들의 비중도 증가하는 것을 알 수 있었으나 나머지 지역은 다른 결과가 도출되었음을 알 수 있었습니다.   
+
+### 1-1. 유치 목적 요인(고정부채률=대학 재정 지표 중 하나) 회귀 분석  
+```{r message=FALSE, warning=FALSE}
+# 데이터 결합 및 회귀분석  
+reg <- merge(student_count, fl)   
+str(reg)
+region <- c('서울', '경기/인천', '비수도권')
+colnames(reg)[c(3,4)]<-c('student', 'fixed_li')
+
+for (i in region){
+  assign(paste0('regression',which(region==i)),reg[reg$지역==i,])
+}
+# 서울 기준 외국인 유학생 수와 고정부채률의 회귀분석  
+r1 <-lm(fixed_li ~student, data=regression1)
+summary(r1)
+```
+__분석결과__    
+y= 0.65x+1.05 의 회귀식으로 서울 기준 외국인 학생수와 고정부채률은 양의 관계를 나타내며 결정계수는 0.5<0.68, p-value 값은 유의수준 0.05보다 낮은 수준으로 외국인 유학생수가 고정부채률에 영향을 미친다는 결과를 도출했습니다.  
+
+```{r}
+# 경기/인천 기준 외국인 유학생 수와 고정부채률의 회귀분석
+r2 <-lm(fixed_li ~student, data=regression2)
+summary(r2)
+```
+__분석결과__     
+경기/인천 기준 외국인 학생수와 고정부채률은 양의 관계를 나타내며 결정계수는 0.013, p-value 값은 유의수준 0.05보다 높은 수준으로 외국인 유학생수가 고정부채률에 영향을 미치지 않는다는 결과를 도출했습니다.  
+
+```{r}
+# 비수도권 기준 외국인 유학생 수와 고정부채률의 회귀분석
+r3 <-lm(fixed_li ~student, data=regression3)
+summary(r3)  
+```
+__분석결과__    
+비수도권 기준 외국인 학생수와 고정부채률은 음의 관계를 나타내며 결정계수는 0.035, p-value 값은 유의수준 0.05보다 높은 수준으로 외국인 유학생수가 고정부채률에 영향을 미치지 않는다는 결과를 도출했습니다.  
+
+
+### 2. 시도별 대학교별 외국인 유학생 수 지도로 구현  
+```{r message=FALSE, warning=FALSE}
+# install.packages(“rJava”)
+library(rJava)
+# install.packages('devtools')
+library(devtools)
+# install_github('cardiomoon/kormaps2014')
+library(kormaps2014)  
+# install.packages("ggiraphExtra")  
+library(ggiraphExtra)
+korpop1 <- changeCode(korpop1)  
+library(ggplot2)
+
+#외국인 유학생 수 병합을 위한 시도별 네임 간소화
+data <- c("특별시", "광역시", "특별자치시", "도", "특별자치도", "청", "라", "상")
+for (i in data){
+  korpop1[,2] <- gsub(i, "", korpop1[,2])
+}
+colnames(korpop1)[2]<- "시도"
+international <- read.csv("외국인유학생수.csv", header=T)  
+international<- international[,c(1,2,3)]  
+international<- international[international[,2]=='계',]
+international<- international[-1,c(1,3)]
+map_student <-merge(korpop1, international, by="시도")  
+map_student2 <- map_student[,c("시도", "외국인유학생수")]
+summary(map_student2)
+# 외국인 유학생수를 우리나라 시도별 지도로 구현  
+ggChoropleth(data=map_student,
+            aes(fill= 외국인유학생수, map_id = code, tooltip=시도),
+            map= kormap1) 
+
+```
+
+__분석결과__    
+서울은 약 6만명, 경기 2만명, 부산 만명으로 대부분의 유학생들은 서울, 경기, 부산권에 분포해있었으며 5천명 이상지역은 충남> 전북> 대전>경북>대구> 광주의 순으로 많았습니다. 울산과 세종시는 약 1천명으로 가장 적게 분포해있는 지역이었습니다.  
+
+### 3. 학과계열별 외국인 유학생 수 + 학위과정별로 출신대륙 분포 분석  
+
+```{r message=FALSE, warning=FALSE}
+library(RColorBrewer)
+dep <- read.csv("학과별 국가데이터.csv", header=T, encoding='cp949')  
+dep <-dep %>% group_by(국가) %>%  summarise(인문사회=sum(인문사회), 공학=sum(공학), 자연=sum(자연), 의학=sum(의학), 예체능=sum(예체능)) %>% gather(학과계열, 외국인유학생수,2:6) 
+dep <-dep %>% 
+arrange(desc(외국인유학생수)) %>% 
+group_by(학과계열) %>% slice(1:6)
+ggplot(dep, aes(x=국가, y= `외국인유학생수`))+
+         geom_bar(stat='identity', fill='orange')+
+  geom_text(aes(label=`외국인유학생수`), vjust=1.5, colour="black",
+position=position_dodge(.9), size=3)+
+  facet_wrap(~학과계열, nrow=3, ncol=2, scales='free')
+  
+         
+
+```
+
+__분석결과__    
+학과계열별로 외국인 유학생수를 분석한 결과, 의학을 제외한 공학, 예체능,인문사회, 자연계열의 학과에서 중국인 출신 학생들이 가장 많은 비중을 차지했으며 이후 베트남이 공학과 인문사회,자연계열에서 2위로 가장 많은 학생순위를 차지했습니다.거의 모든 학과계열은 1000명 단위였지만 의학계열에서는 학생수의 단위가 10명 단위로 캐나다와 대만,미국의 순으로 비중을 차지했습니다.   
+
+### 3-1. 학위과정별로 출신대륙 분포 분석  
+
+```{r message=FALSE, warning=FALSE}
+country <- read.csv("2020년 대륙별 외국인 유학생 현황.csv",header=T, encoding= ' CP949')
+country <- country[, c(1,2,8,14,20,21)]  
+colnames(country)<- c("대륙", "어학연수", "대학(전문대학)계", "대학원(석사)계", "대학원(박사)계", "기타연수")  
+for (i in c(2:6)){
+  country[,i]<- gsub(",", "", country[,i])
+  country[,i] <- as.numeric(country[,i])
+}  
+country[is.na(country)]<-0
+
+
+country <-country %>% gather(학위과정별, `외국인 유학생수`, 2:6)  
+country2<- country %>%
+  group_by(대륙) %>%
+  summarize(총학생수 = sum(`외국인 유학생수`))  
+country3<-merge(country, country2, by='대륙' )
+country3 <-country3 %>% 
+  mutate(백분율 = `외국인 유학생수`/총학생수, lbl = paste0(round(백분율*100,1),'%',""))
+
+
+library(ggplot2)
+ggplot(country3, aes(x=factor(대륙),y=백분율, fill = factor(학위과정별)))+
+                      geom_bar(stat='identity', position='fill', color='black')+
+                       geom_text(aes(label = lbl), size=3, position= position_stack(vjust = 0.5))+
+  coord_flip()
+
+```
+
+__분석결과__    
+대륙별로 학위과정별 백분율을 조사한 결과, 유럽에서는 기타연수가 56.6%를 차지하며 가장 많은 비중을 차지했으며 오세아니아는 대학과정과 기타연수과정 30%초반으로 비슷한 비중을 차지했습니다.  
+아프리카는 대학원 석사계열에서 많은 학생수가 존재했으며 아시아와 남아메리카는 대학(전문대학)계, 북아메리카는 기타연수에서 많은 비율을 차지했습니다. 대륙마다 학위과정의 백분율은 모두 다르지만 전체적으로 보았을 떄 외국인 유학생수는 대학(전문대학포함)계에 존재하는 학생들이 가장 많이 분포하고 있음을 알 수 있습니다.  
+
+
+### 4.외국인 유학생 언어능력 충족비율 (TOPIK 4급이상 학생비율)분석  
+
+```{r message=FALSE, warning=FALSE}
+TOPIK <- read.csv("외국인 유학생 한국어 능력.csv", header=T, encoding='CP949')  
+TOPIK <- TOPIK[,c(1:11)]
+colnames(TOPIK)[c(7,8,9,10,11)]<- c("대학 총 학생수","계", "TOPIK 4급(예체능 3급)이상", "영어트랙 TOEFL 530 수준이상", "언어능력 충족비율")  
+TOPIK[,7]<-as.numeric(TOPIK[,7])
+TOPIK[,8]<-as.numeric(TOPIK[,8])
+TOPIK[,9]<-as.numeric(TOPIK[,9])  
+TOPIK <- TOPIK[!(TOPIK$`TOPIK 4급(예체능 3급)이상` == 0 & TOPIK$`영어트랙 TOEFL 530 수준이상`== 0), ]  
+TOPIK <-TOPIK %>%  mutate(한국어능력 = round(`TOPIK 4급(예체능 3급)이상`/`대학 총 학생수`*100,1))  
+TOPIK[is.na(TOPIK)] <- 0  
+# 총 외국인 유학생수 중 TOPIK 4급 이상 비율  
+sum(TOPIK$`TOPIK 4급(예체능 3급)이상`)/sum(TOPIK$`대학 총 학생수`)*100  
+# 대학교 중에서 TOPIK 4급 이상비율이 50%를 넘는 대학수  
+length(TOPIK$학교); length(which(TOPIK$`한국어능력`>=50)); length(which(TOPIK$`한국어능력`>=50))/length(TOPIK$학교)*100
+
+# TOPIK 등급과 영어등급 충족의 학생수 간의 선형관계
+ggplot(TOPIK, aes(x=`TOPIK 4급(예체능 3급)이상`, y=`영어트랙 TOEFL 530 수준이상`))+
+  geom_jitter() +
+  geom_smooth(method='lm')
+ggplot(TOPIK, aes(x=`TOPIK 4급(예체능 3급)이상`, y=`영어트랙 TOEFL 530 수준이상`))+
+  geom_jitter(size=3) +
+  coord_cartesian(xlim = c(0, 250), ylim = c(0,200))+
+  geom_smooth(method='lm')  
+
+```
+
+__분석결과__    
+총 외국인 유학생들 수 중 TOPIK 4급 이상 비율은 55%으로 많은 외국인 유학생들이 한국어능력수준을 높은 수준으로 생각될 수 있지만, TOPIK 4급 이상의 학생수가 50%이상인 대학교의 비율은 25% 남짓 밖에 되지 않습니다. 
+외국인 유학생들이 한국대학에 오기 위해 단순히 어학연수나 진학 등 다양한 이유가 존재하기 떄문에 그에 맞는 합격 기준이 다릅니다. 따라서 TOPIK 시험을 보거나 한국어능력시험을 보지 않고 TOEFL 등급으로 합격이 판단되는 경우도 존재합니다.TOPIK 5,6급은 한국어 고급수준의 등급으로,4급보다 높은 등급이지만 실제생활에서 한국말의 능숙도의 척도로서는 현저히 부족하다는 현실입니다.  
+그래프와 같이 대부분의 대학은 TOEFL시험보다 TOPIK등급을 충족시킨 유학생수가 대다수이지만, 자세히 살펴보면(다음 그래프 참고) TOPIK 4급 이상인 학생들은 (0,1000)의 범위에서 대다수가 (0,250)의 범위에서 존재하고 있습니다. 따라서 이는 외국인 유학생들을  유치하여 장기적인 경제적 효과를 얻기 위해서는 한국말의 능력 부족 문제를 해소하는 것이 중요하다는 것을 뒷받침하는 하나의 지표로 해석될 수 있습니다.        
+
+### 5. '외국인 유학생 유치 문제' 키워드 웹 크롤링& 텍스트 마이닝
+```{r message=FALSE, warning=FALSE}
+library(wordcloud)
+library(httr) # httr은 POST방식으로 데이터를 요청해서 가져오는 경우에 사용한다.
+library(rvest)
+library(stringr)
+library(KoNLP)
+library(RColorBrewer)# rvest는 GET방식의 http 주소를 사용해서 데이터 내용을 가져오기 위해 사용한다.  
+# knit하기 위해 웹 크롤링 코드부분은 모두 주석 처리해주었습니다.  
+# title <- NULL  # 빈 벡터들을 만들어준다.
+# summ <- NULL
+# 
+# for (i in 0:50) { #1page에서 10page까지 모든 데이터들에 적용해야 한다.
+#   url <- "https://search.naver.com/search.naver?where=news&sm=tab_pge&query=%EC%99%B8%EA%B5%AD%EC%9D%B8%20%EC%9C%A0%ED%95%99%EC%83%9D%20%EC%9C%A0%EC%B9%98%EB%AC%B8%EC%A0%9C&start="  # url 주소에서 숫자가 들어갈 부분만 제외하고 나머지 부분을 입력한다.
+#   urls <- paste(url, 10*i+1, sep="") # 1에서 10까지 바뀐 주소값들이 입력될 수 있도록 새로운 변수 urls를 만든다.
+#   html_source <- read_html(urls)  # 그 주소의 html를 읽는 함수를 사용하고, 새로운 변수에 데이터들을 읽는다.(웹 페이지 읽어오기)
+#   #Selector를 이용해 원하는 data 부분만 추출하기 위해서 html_nodes함수를 이용한다.
+#   # review title
+#   title_nodes <- html_nodes(html_source ,  'div.news_area > a')
+#   #리뷰위치를 추출하기 위한 구조는 웹페이지의 F12를 통해 알 수 있는데 이는 CSS Selecter하는 과정이다.
+#   title_i <- html_text(title_nodes) #텍스트를 추출하기 위해 html_text함수를 이용한다.
+#   title <- append(title, title_i)  #빈 벡터였던 title에 1에서 10페이지들의 title들을 모두 누적한다.
+# 
+#   #리뷰요약과 날짜 모두 앞에 리뷰제목과 한 코드와 비슷하지만, 원하는 부분을 추출할 때 구조가 조금 다르다. 이는 추출하고자 하는 데이터의 구조는 모두 다르다는 것을 알 수 있다.
+#   # review summary
+#   summ_nodes<- html_nodes(html_source, 'div.dsc_wrap > a')
+#   summ_i <- html_text(summ_nodes)
+#   summ <- append(summ, summ_i)
+# 
+# }
+# 
+# web_crawling<- data.frame(title, summ)
+# for (i in c('유학생','외국','유치','문제', '대학', '학생')){
+#   web_crawling$title <-gsub(i,"",web_crawling$title)
+#   web_crawling$summ <-gsub(i,"",web_crawling$summ)
+# }
+# 
+# 
+# write.csv(web_crawling, file = "web_crawling.csv")
+
+web_crawling <-read.csv("web_crawling.csv", encoding='CP949')
+
+#각각 벡터에 저장된 내용을 한 개의 dataframe으로 합쳐준다.
+web<-sapply(web_crawling,extractNoun,USE.NAMES=F)#명사추출
+web<-unlist(web)
+web <-Filter(function(x){nchar(x)>=2},web) #두 글자 이상 단어만 뽑아내기
+wordcount <- table(web)  
+wordcount2<-sort(wordcount, decreasing = T)[1:20] 
+ 
+barplot(wordcount2,
+        names.arg = names(wordcount2),
+        col = 'darkorange',
+        main="외국인 유학생 유치문제 관련 키워드", ylab='단어 빈도수')
+
+set.seed(1234)
+wordcloud(names(wordcount), freq=wordcount, scale=c(4,1.5), min.freq = 2,
+          max.words=200, random.order=FALSE, rot.per=0.1, 
+          colors=brewer.pal(8, "Dark2"))
+
+
+
+```
+
+__분석결과__   
+네이버 뉴스에 '외국 유학생 유치문제' 라고 검색하여 상위20개의 단어를 추출한 결과 인구, 감소, 불법체류, 학령, 지방, 해결이라는 키워드가 가장 많이 나타났습니다.  
+워드클라우드로 구현했을떄, 인재를 확대하고, 정부에서 지원과 해결, 해외 불법체류와 같은 단어들이 연결되어있는듯했습니다. 정확한 분석을 위해 외국인, 유학생, 유치, 문제, 대학, 학생이라는 키워드는 검색한 키워드와 같은 의미를 가졌기 때문에 키워드추출에서 제외시켰습니다.  
+
+### 6. 외국인 중도 탈락률와 불법체류률의 상관관계  
+
+데이터 수집: 불법체류외국인유학생수 2018년 8월기준 데이터로, 
+외국인중도탈락수도 2018년 기준의 데이터로 수집했습니다.
+
+```{r message=FALSE, warning=FALSE}
+# 중도탈락률 = 중도탈락 외국인유학생수 / 전체 학생수 
+# 불법체류률 = 불법 체류 외국인 유학생수 /전체 학생수 
+
+# 전체 학생수 
+
+total_st <- read.csv("2018년 외국인유학생수.csv", header = T, encoding='CP949') 
+total_st <-total_st[total_st$설립=='계',c(1,2,3)]  
+#중도탈락 유학생수  
+Dropout <- read.csv("외국학생 중도탈락 현황 .csv", header= T, encoding='CP949')  
+
+names(Dropout) [names(Dropout) == "지역"] <- c("시도")  
+names(Dropout) [names(Dropout) == "총계.B."] <- c("중도탈락 학생수")  
+Dropout <- Dropout[-239,]  
+
+Dropout <- aggregate(`중도탈락 학생수` ~ 시도, data=Dropout, sum)
+#불법 체류 외국인 유학생수  
+illegal_stay <- read.table(file = "불법체류 학생수.txt", header=TRUE, sep="")  
+
+#데이터 병합
+df1 <-left_join(total_st, Dropout, by= '시도')  
+df2 <-left_join(df1, illegal_stay, by='시도')  
+df2$`중도탈락 학생수`[1]<- sum(df2$`중도탈락 학생수`, na.rm=T) 
+df2$불법체류수[1] <- sum(df2$불법체류수, na.rm = T)  
+# 중도탈락률과 불법체류률상관관계 파악
+df3 <- df2[-1,-2]  
+names(df3) [names(df3) == "불법체류수"] <- c("불법체류학생수")  
+df3$전체<- as.numeric(df3$전체)
+df3 <-df3 %>% mutate(중도탈락률= round(`중도탈락 학생수`/전체*100, 2), 불법체류률 = round(`불법체류학생수`/전체*100, 2))
+cor.var <- df3[c("중도탈락률", "불법체류률")]
+#cor 함수를 이용한 상관분석
+round(cor(cor.var, use="pairwise.complete.obs"), 2) 
+# 그래프로 확인
+plot(cor.var)  
+abline(lm(`불법체류률` ~ `중도탈락률`, data=cor.var), col = "darkorange2", lwd = 3)
+cor_graph<- cor(cor.var)
+
+library(corrplot)
+cor_graph %>%
+  corrplot(method='number',  shade.col=NA, 
+           tl.col='black', 
+           tl.srt= 45)
+   
+# 두 변수 간의 상관계수와 유의도 출력  
+cor.test(df3$중도탈락률, df3$불법체류률)  
+
+```
+
+__분석결과__    
+각 지역의 외국인 유학생수가 상이함에 따라 백분율로 값을 형성하여 시도별 외국인 유학생 중도 탈락률과 불법 체류률을 상관분석한 결과 
+두 변수는 약 0.25의 상관계수로 양의 관계를 지니지만 강한 상관관계를 가지고 있지 않았습니다. 즉, 외국인 유학생들의 중도 탈락률이 높아도 불법체류 학생들의 비율이 높다고 할 수 없음을 파악할 수 있었습니다.  
+
+
+### 7. 기숙사, 장학금, 영어전용강좌의 유무와 외국인 중도탈락 수의 관계 (이원 분산분석) 
+
+```{r message=FALSE, warning=FALSE}
+library(rvest)
+#웹페이지 테이블 추출 코드 작성 후 저장 
+# Sys.setlocale("LC_ALL", "English")
+# df4<-NULL
+# for (i in 1:45){
+#   url <- "https://www.studyinkorea.go.kr/ko/sub/overseas_info/request/universityList.do?pageIndex="
+#   urls <- paste(url, i, sep="")
+#   nv  <- read_html(urls, encoding= 'UTF-8')
+#   tbl = html_node(nv,'#content_inner > table')
+#   xi= html_table(tbl)
+#   df4 <-rbind(df4,xi)
+# }  
+# Sys.setlocale("LC_ALL", "Korean")
+# df4
+# save(df4, file = "webtable.Rda")
+load("webtable.Rda") #불러오기  
+df4
+
+#학교명과 일치하는 외국인유학생 중도탈락 학생수 
+Dropout_1 <- read.csv("외국학생 중도탈락 현황 .csv", header= T, encoding='CP949')  
+ 
+names(Dropout_1) [names(Dropout_1) == "총계.B."] <- "중도탈락 학생수"
+names(Dropout_1) [names(Dropout_1) == "학교"] <- "학교명"
+Dropout_1 <- Dropout_1[-239,]  
+df5 <-left_join(df4, Dropout_1, by="학교명")
+df5 <- df5 %>% select(No,학교명, 지역.x, 기숙사, 장학금, 영어전용강좌, `중도탈락 학생수`)  
+df5
+for (i in c(4:6)){
+  df5[,i]<-ifelse(df5[,i]=='O', 1, 0)
+}
+df5 <-na.omit(df5)    
+# 이원 분산분석   
+# 독립변수: 기숙사, 장학금, 영어전용강좌 / 종속변수: 중도탈락 학생수    
+ano1 <- aov(`중도탈락 학생수` ~ 기숙사 * 장학금 * 영어전용강좌, data=df5)  
+anova(ano1)
+```
+__분석결과__    
+독립변수들 간의 상호작용 효과를 인정한 모형의 분석 결과 변수들의 각각 p값을 살펴보면 유의도 0.05의 기준으로  
+1개의 변수:기숙사의 유무, 영어전용강좌의 유무  
+2개 이상의 변수: 기숙사와장학금,장학금과영어전용강좌의 유무의 변수들은 외국인 유학생들의 중도 탈락수에 통계적으로 유의한 영향을 미치고 있는 것으로 나타났습니다.  
+반면, 1개의 변수: 장학금    
+2개 이상의 변수: 기숙사와영어전용강좌, 기숙사,장학금,영어전용강좌의 변수들은 유의한 영향을 미치지 않는 것으로 분석되었습니다.  
+따라서 외국인 유학생들의 중도 탈락률을 낮추기 위해서 유의한 결과를 도출한 기숙사의 지원과 영어전용강좌개설의 보충이 우선적으로 필요한 것으로 보입니다. 
+
+### 데이터 분석 총정리  
+1.  외국인 유학생 유치현황 및 유치 목적 요인 회귀분석 결과
+연도별 외국인 유학생 비율 그래프 분석 결과 2014년부터 2019년도 까지 수도권, 비수도권 모두 외국인 유학생 비중이 증가하고 있음을 알 수 있습니다. 외국인 유학생 유치 목적 요인으로 고정부채률(=대학 재정 지표 중 하나)을 선택하여 회귀 분석 한 결과 서울 기준 외국인 유학생수가 고정부채률에 영향을 미친다는 결과를 도출했으며 실제로 고정 부채비율이 2%~최대4%로 증가함에 따라외국인 유학생들의 비중은 2%~5%로 가장 큰 폭의 증감률을 보였습니다. 이외에 지역은 영향을 미치지 않는다는 결과가 도출되었습니다.
+
+2. 시도별 대학교별 외국인 유학생 수 지도로 구현해 본 결과  
+서울은 약 6만명, 경기 2만명, 부산 만명으로 대부분의 유학생들은 서울, 경기, 부산권에 분포해있었으며 울산과 세종시는 약 1천명으로 가장 적게 분포해있는 지역이었습니다. 
+
+3. 학과계열별 외국인 유학생 수 + 학위과정별로 출신대륙 분포 시각화한 결과    
+공학, 예체능,인문사회, 자연계열의 학과에서 중국인 출신 학생들이 가장 많은 비중을 차지했으며 의학계열에서는 학생수의 단위가 10명 단위로 캐나다와 대만,미국의 순으로 비중을 차지했습니다. 유럽에서는 기타연수, 오세아니아는 대학과정과 기타연수과정,
+아프리카는 대학원 석사계열에서, 아시아와 남아메리카는 대학(전문대학)계, 북아메리카는 기타연수에서 가장 많은 비중을 차지했습니다.전체적으로 보았을 떄 대학(전문대학포함)계에 존재하는 학생들이 가장 많이 분포해 있었습니다.  
+
+4. 외국인 유학생 언어능력 충족비율 (TOPIK 4급이상 학생비율)분석결과  
+총 외국인 유학생들 수 중 TOPIK 4급 이상 비율은 55%으로 TOPIK 4급 이상의 학생수가 50%이상인  
+대학교의 비율은 25% 남짓 밖에 되지 않습니다. TOEFL시험보다 TOPIK등급을 충족시킨 유학생수가 대다수이지만, 자세히 살펴보면 TOPIK 4급 이상인 학생들은 (0,1000)의 범위에서 대다수가 (0,250)의 범위에서 존재하고 있었습니다.  
+
+5. '외국인 유학생 유치 문제' 키워드 웹 크롤링& 텍스트 마이닝 결과  
+'외국 유학생 유치문제'인재를 확대하고, 정부에서 지원과 해결, 해외 불법체류와 같은 단어들이 연결되어 있는듯 했습니다.
+6. 외국인 중도 탈락률와 불법체류률의 상관관계 분석 결과  
+약 0.25의 상관계수로 양의 관계를 지니지만 강한 상관관계를 가지고 있지 않았습니다.   
+이는 외국인 유학생들의 중도 탈락률이 높아도 불법체류 학생들의 비율이 높다고 할 수 없음을 파악할 수 있었습니다.  
+
+7. 기숙사, 장학금, 영어전용강좌의 유무와 외국인 중도탈락 수의 관계 (분산분석)  
+1개의 변수: 기숙사의 유무, 영어전용강좌의 유무
+2개의 변수: 기숙사와장학금,장학금과영어전용강좌의 유무의 변수들은 
+외국인 유학생들의 중도 탈락수에 통계적으로 유의한 영향을 미치고 있는 것으로 나타났습니다.  
+따라서 외국인 유학생들의 중도 탈락률을 낮추기 위해서 유의한 결과를 도출한 기숙사의 지원과 영어전용강좌개설의 보충이 우선적으로 필요한 것으로 보입니다. 
+
+#### 마무리말  
+외국인 유치 목적의 요인으로 모든 지역의 대학 고정부채률이 외국인 유학생수와 비례하는 관계를 가질것이라고 예측했는데  실제 분석결과  
+다르게 도출되어 아쉬웠고, 외국인 유학생들의 중도 탈락률이 높을수록 그 지역의 불법 체류률 또한 증가할 것으로 예상했는데 예상과 다른 결과가 나와 놀랐습니다. 또, 의학계열에는 캐나다, 대만의 순으로 학생수가 많이 존재한다는 점에서도 새롭게 알게되었습니다. 
+코로나19로 외국인 유학생수가 줄어들며 교육서비스의 수출의 경제적 효과와 노동시장의 파급력이 약화되고 있지만 국제화의 가속화에 빠르게 발맞춰 실속있는 외국인 유학생 유치정책을 성립하는데 도움이 되었으면 좋겠습니다. 감사합니다.  
+
+
+
+
+

@@ -1,0 +1,272 @@
+---
+title: "Term2-202021532_박진아"
+author: "박진아"
+date: '2020 12 4 '
+output: html_document
+---
+
+# 주제: 한국의 폐기물의 현황과 불법폐기물(쓰레기산) 분석  
+
+## 주제선정이유: 코로나19가 장기화됨에 따라 일회용품 사용량이 증가해지면서 생활폐기물들이 많아지는 심각성을 알게되었습니다.        또한 폐기물을 수입하던 중국에서 수입금지령을 내리면서 우리나라에 불법폐기물들이 증가하고 있다는 영상을 보고, 이에 대해 자세히 분석하고 싶었습니다. 
+
+## 목차  
+1. 폐기물 발생현황  
+2. 폐기물 처리현황    
+3. 폐기물 처리시설(매립,소각지)- 잔여매립가능량 비율 지도로 구현  
+4. 시도별 불법 폐기물 처리비율로 현황 파악하기 
+5. 생활폐기물 관리예산 비용   
+
+### 데이터의 한계  
+최근 2019년 2020년 상반기 폐기물에 대한 정보가 없어서 
+2017년과 2018년도의 데이터들을 주로 다루고 있다.
+그러나 불법 폐기물과 같은 데이터들은 2018~2019년도의 데이터들이다.
+
+```{r}
+library(tidyverse)
+library(tidyr)  
+library(ggplot2)  
+library(dplyr)
+library(ggrepel)
+waste <- read.csv("waste_Trend.csv", encoding = "utf-8")  
+ 
+waste <- gather(waste, Year, n, 3:8)  
+waste <- waste[c(-66,-55,-44,-33,-22,-11),]  
+colnames(waste) <- c("kind","sortation", "Year", "n")  
+waste$Year <- gsub("X.", 20, waste$Year)  
+waste$n <- as.numeric(gsub(",", "", waste$n))
+
+# 연도별 폐기물 발생량 비교하기 
+waste %>%
+ filter(sortation=="발생량") %>%
+ ggplot(aes(x = Year,y=n, fill = kind)) +
+ geom_bar(stat="identity") +
+ geom_text(aes(x= Year, y=n, label = n), size = 3, hjust = 0.5, vjust =1.5, position ="stack")  
+
+
+# 종류별 전년대비 증감율 비교하기
+waste %>%
+  filter(sortation=="전년대비 증감율")%>%
+  ggplot(aes(x=Year, y=n, colour=kind, label=n))+
+  geom_point()+
+  geom_text_repel()
+
+
+```
+
+<결과>  
+연도가 거듭될수록 폐기물의 종류 상관없이 발생량이 증가하고 있다. 그 중에서 전년도 대비 증감율을 살펴보면 연도별로 증감율이 큰 종류가 일정하지 않고 있으나 대체적으로 지정> 건설> 생활폐기물 순으로 증감율이 높은 편이다.  
+```{r}
+# 지역별 폐기물량 비교하기  
+Area <-read.csv("지역별_폐기물_발생현황.csv", encoding= 'utf-8')  
+Area<- Area[c(-1,-2),c(-2,-3)]
+colnames(Area)[colnames(Area)=="구분"] <- c("region")  
+Area<-gather(Area, kind, amount, 2:5)  
+Area$amount <- gsub(",","", Area$amount)  
+Area$amount<- as.numeric(Area$amount)  
+Area <- filter(Area,!is.na(Area$amount))  
+Area2 <-Area %>%
+  group_by(region) %>%
+  summarise(emission=sum(amount))  
+
+
+# 1인당 하루 배출량 조사하기  
+population <- read.csv("지역별_인구수.csv", encoding= "utf-8")  
+population<- population[-1,c(1,2)]
+colnames(population)<- c("region","총인구수") 
+population$총인구수<- as.numeric(population$총인구수)
+amount_per<-left_join(Area,population, by="region")  
+df_amount_per <-amount_per %>% 
+  mutate(amount_per= amount/총인구수)
+df_amount_per <-df_amount_per%>%
+  group_by(region) %>%
+  summarise(Emission=round(sum(amount_per)*100,3))
+Emissions<-left_join(Area2, df_amount_per, by="region")
+
+# 지역별 폐기물과 1인당 배출량 그래프 합치기
+ggplot(Emissions)+
+ geom_col(aes(x = region, y= emission),stat="identity")+
+ geom_line(aes(x= region, y= Emission*20000),color="red", group=1, size=1.2)+
+ scale_y_continuous(sec.axis = sec_axis(~./20000, name = "Emission"))+
+ geom_point(aes(x= region, y= Emission*20000),color="red", group=1, size=3)
+
+```
+<결과>  
+2018년도를 기준으로, Bar graph를 분석하면
+경기> 충남> 서울>경북 순으로 배출량이 높으며, 
+오름차순으로 정리하면 세종<제주<광주<대전 순으로 세종시가 배출량이 가장 적었다.  
+line graph를 분석하면
+총 배출량/그 지역 인구수= 1인당 배출량을 비교하면 충남> 전남> 경북>충북 순으로 높다.  
+이는 배출량이 높은 수도권에는 그만큼의 지역 인구수도 높기 때문에 수도권보다 충남,전남 지역이 1인 배출량에서 상위권을 차지했다.  
+```{r}
+library(magrittr)
+# 총 배출량과 온라인 쇼핑 거래액, 국내카드실적(온라인 거래액+오프라인 거래액) 상관관계 파악하기
+library(corrplot)
+x <- c(429128,	429531,	446102, 4629,4881,5547, 94185765,	 113314010,	 135264047 )  
+mat <- matrix(x,nrow=3,ncol=3) 
+rownames(mat)<- c("2017","2018","2019")  
+colnames(mat)<- c("총 배출량","online", "total card")  # 온라인 거래액=online은 단위: 백만원, 국내카드실적=toatl card는 단위: 백억원  
+cor_graph<-  mat%>% cor() 
+cor_graph %>%
+  corrplot(method='number',  shade.col=NA, 
+           tl.col='black', 
+           tl.srt=90)
+```
+<결과>  
+폐기물 배출량과 카드 거래액을 보았을 때 소비가 증가함에 따라 폐기물의 배출량도 증가하는 양의 관계에 있음을 알 수 있다.
+또한  온라인 쇼핑 거래액과 폐기물 배출량 또한 거의 1에 가까운 높은 상관도를 보이고 있다. 이는 코로나19로 인해 온라인 쇼핑 거래액이 증가하면 폐기물 배출량 또한 증가한다는 것을 예측해 볼 수 있다.  
+
+```{r}
+# 폐기물 종류별 처리현황  
+process_status<- read.csv("연도별_폐기물처리량_현황.csv", encoding= 'utf-8')  
+process_status<- process_status[c(-1,-2,-7,-9),c(-3,-5,-7,-9,-11,-13)]  
+process_status<-gather(process_status, Year, 발생량, 2:7)  
+process_status$Year<- gsub("X.", "20", process_status$Year)  
+process_status$발생량<-as.numeric(gsub(",", "", process_status$발생량))  
+
+proc<- ggplot(process_status, aes(x=Year, y=발생량,
+                                  colour=구분, label=발생량,group= 구분))+
+  geom_line(size=1.2)+
+  geom_point(size= 3)+
+  facet_wrap(~구분,scales="free")
+proc
+
+```
+< 결과>  
+매립과 해역배출의 처리량은 급격히 줄어들고 있으며, 
+소각과 재활용의 처리량이 급격히 증가하고 있는 추세이다.  
+환경을 위해 재활용의 처리량은 늘리고, 매립 처리량을 줄어들고 있지만 
+소각 처리량이 늘고 있다는 것이 문제가 되고 있다.  
+```{r}
+# 지역별로 잔여매립가능량 비율 비교하기 (지도 클릭하면 가능량 기재되어있음.)
+remain<- read.csv("잔여매립가능량.csv", encoding='utf-8')  
+remain<- remain[,c(1,4,6)]  
+colnames(remain)<- c("region", "total_landfill", "remain_landfill")  
+remain<-remain %>% mutate(remain_per= round((remain_landfill/total_landfill*100),2))
+remain<- remain[-1,]  
+remain<-rbind(remain,data.frame(region="서울", total_landfill=0,remain_landfill=0,remain_per=0)) 
+
+library(leaflet)
+KOR_LAT_LON <- read.csv("KOR_LAT_LON.csv", encoding='utf-8') 
+
+remain<- remain %>%  arrange(desc(remain_per))
+p<- left_join(KOR_LAT_LON, remain, by="region")
+ 
+mypalette <- colorQuantile(palette="YlOrRd",p$remain_per, n=6) 
+ 
+leaflet(p) %>% addTiles() %>% 
+  addCircleMarkers(~LON,~LAT,color=~mypalette(remain_per), popup=paste("region:",p$region,"/", "잔여매립가능량 비율:", p$remain_per)) %>% 
+  addLegend(position="topright", pal=mypalette,values= ~remain_per,opacity=1,title = "잔여매립가능량 비율") 
+
+```
+<결과>  
+잔여매립가능량(m^3)/ 각 지역별 총 매립 용량(m^3)=잔여매립가능량 비율=remain_per를 4분위하여 본 결과 
+빨간색계열은 잔여매립가능량 비율이 큰 값의 순서를 뜻하며, 지역은 세종> 광주> 울산> 대구 순으로 분석되었다.  
+노란색 계열은 잔여매립가능량 비율이 작은 값의 순서로 지역은 제주> 전북> 대전> 부산> 충북 순으로 제주가 가장 잔여매립량의 비율이 적다.
+따라서 잔여매립가능량의 비율이 적은 제주와 전북은 매립지 시설을 더 확충하거나, 소각과 재활용 등 처리방법을 달리하는 등 처리해야 폐기물들을 분석함으로써 쌓여가는 폐기물의 문제를 사전에 예방할 수 있다.  
+
+```{r}
+# 불법 폐기물 처리현황 확인하기  
+illegal_waste<- read.csv("불법폐기물_처리현황.csv", encoding="utf-8")  
+illegal_waste <- illegal_waste %>% gather(region, n, 3:16)  
+illegal_waste1<-illegal_waste%>%
+  filter(구분=="발생량")%>%
+  select(region, n)%>%
+  rename(, 발생량=n)  
+illegal_waste2 <- illegal_waste%>%
+  filter(구분=="처리량")%>%
+  select(region,n)%>%
+  rename(,처리량=n)  
+illegal<- left_join(illegal_waste1, illegal_waste2, by="region")  
+illegal<- illegal[c(-1,-2),] #경기> 경북은 발생량과 처리량이 극단적으로 높아서 비교할 데이터에서 제외
+ggplot(illegal, aes(발생량, 처리량)) + 
+  geom_point(aes(colour=region, size=처리량)) +
+  geom_smooth(method="lm")
+
+
+```
+<결과>
+불법폐기물의 처리량/발생량=기울기, 기울기의 완만도를 통해서 불법폐기물의 처리현황을 알 수 있다. 
+왜냐하면 발생량이 많은데 비해 처리량이 적다면 점위치와 원점(0,0)을 연결했을때의 기울기의 완만도 정도가 더 클것이다.  
+그래프상에서 선은 점들이 위치한 곳을 연결하는 선의 중앙값을 나타내고 있다.  
+경기와 경북은 다른 지역에 비해 극단적으로 발생량과 처리량 모두 높았으며,
+울산(처리량=0),강원(처리량=0),대구순으로 불법폐기물의 처리비율이 저조하다.  
+
+```{r}
+# 생활폐기물 관리예산 집행내역 분석하기  
+Budget <- read.csv("생활폐기물_관리예산_집행내역.csv", encoding="utf-8")  
+Budget <-Budget%>%
+  fill(연도, .direction='down')  
+Budget$총계<- c(round(Budget$총계,-6)/1e+05)
+Budget$시설.설치비<- c(round(Budget$시설.설치비,-4)/1e+05)  
+Budget$수집.운반등.처리비<- c(round(Budget$수집.운반등.처리비,-6)/1e+05)  
+names(Budget)[names(Budget)=="구분"]<-"지역"  
+
+# 2018년도 지역별 기준 시설.설치비 비교하기   
+ Budget%>%
+  filter(연도==2018)%>% 
+  ggplot(aes(x=지역,y=시설.설치비,fill=지역)) + geom_bar(stat="identity",aes(colour=지역)) + coord_flip() + theme_minimal() + labs( x="지역", y="시설.설치비(단위:억)" ) + geom_text(stat = 'identity',aes(label=(시설.설치비)),hjust=0,vjust=0.5,fontface="bold") + ggtitle(expression(atop("","2018년도 기준 시설.설치비"))) 
+ 
+# 2018년도 지역별 수집,운반,처리비 비교하기  
+ Budget%>%
+  filter(연도==2018)%>% 
+  ggplot(aes(x=지역,y=수집.운반등.처리비,fill=지역)) + geom_bar(stat="identity",aes(colour=지역)) + coord_flip() + theme_minimal() + labs( x="지역", y="수집.운반등.처리비(단위:억)" ) + geom_text(stat = 'identity',aes(label=(수집.운반등.처리비)),hjust=0,vjust=0.5,fontface="bold") + ggtitle(expression(atop("","2018년도 기준 수집.운반등.처리비")))  
+ 
+ #2016년~2018년도는 전처리를 통해 총예산액을 구하고 연도별 총 예산액 변화추이를 그린다.
+Budget1<-Budget%>%
+  group_by(연도)%>%
+  summarise(Total_budget=sum(총계))
+Budget1<-rbind(Budget1, data.frame(연도=c(2013,2014,2015), Total_budget=c(31170,32270,34050)))
+  ggplot(Budget1, aes(x=연도, y=Total_budget))+ geom_line()+geom_point()+labs( x="연도", y="총 예산액(단위:억)" ) + geom_text(stat = 'identity',aes(label=(Total_budget)),hjust=0.3,vjust=1.5,fontface="plain") + ggtitle(expression(atop("","연도별 폐기물 총예산금액")))  
+
+```
+<결과>  
+2018년도 기준으로 생활폐기물 시설(매립지+기타시설)설치비용을 조사한 결과 
+제주> 강원> 강북의 순으로 가장 높았으며, 수집,운반 등 기타 폐기물 처리 비용은 수도권인 경기>서울이 다른 지역에 비해  
+월등히 높았다. 전체적으로 폐기물 설치 및 관리 예산 내역을 파악하기 위해 연도별 추이를 그려본 결과  
+폐기물의 발생량이 증가함에 따라 설치 및 관리 지출 비용이 증가하고 있음을 알 수 있다.  
+
+# 데이터 분석 총정리  
+1. 폐기물 발생량이 종류상관없이 증가하고 있다. 
+  그 중에서도 2017년과 2018년 사이 지정 폐기물의 증감률이 상당히 높다.
+  종류 상관없이 전년대비 증감률이 -가 아니라 모두 +이다.
+2. 지역별 폐기물의 총 발생량은 경기>충남>서울>경북의 순으로
+  총 발생량은 인구수에 의해 결과값이 변하기 때문에 1인당 발생량을 비교했을때는 
+  총발생량에서 높았던 경기와 서울은 낮은값을, 충남>전남>경북 순으로 가장 높은 1인 배출량
+  지역으로 도출되었다.
+3.  쓰레기 배출량의 증가 원인 중 하나로 온라인 쇼핑의 증가라고 가정하고 상관분석을 한 결과 
+  온라인 쇼핑과 총 폐기물의 배출량의 상관관계는 0.97로 코로나19로 인해 온라인 쇼핑이 증가하면 
+  쓰레기 배출량이 늘어날 것이라는 것을 확인할 수 있다. 
+  (물론,더 상세한 데이터분석을 하면 상관계수는 조금 달라질 수 있다)   
+4. 폐기물 처리현황(매립,소각,재활용)-지방자치단체에서 처리하는 폐기물 처리시설 중 
+  매립시설의 현황을 조사한 결과 지역별로 잔여매립가능량의 비율을 파악할 수 있었다. 
+  잔여매립가능량의 비율이 작은 값의 지역에는 제주>전북>대전>부산 > 충북 순이었다. 
+  따라서 제주와 전북에는  매립지 시설을 더 확충하거나, 소각과 재활용 등 처리방법을 달리하여 
+  폐기물들이 쌓이지 않도록 대책을 마련해야 한다.
+5. 지역별 불법폐기물의 발생량과 처리량을 확인하여 처리율 현황을 평가하면,  
+  경기와 경북은 다른 지역에 비해 발생량이 많은만큼 처리하는 량도 많아서 처리율이 높지만
+  울산>강원>대구 순으로 불법폐기물의 처리비율이 저조했다. 
+  따라서 울산, 강원, 대구 지역의 불법 폐기물 처리 관리 및 감독이 집중적으로 필요한 것으로 보인다.
+6. 연도별 추이를 보았을 때 연도별로 폐기물 발생량이 증가함(폐기물 발생량 현황 조사분석에서)을 
+  파악할 수 있었는데 폐기물 설치 및 관리 비용 역시 증가하고 있음을 알 수 있다. 
+  2017년부터는 예산 비용이 4조원을 넘어섰으며 이후 년도에도 폐기물 발생량이 늘어난다면 
+  폐기물 관련 비용이 약 5조원을 돌파할 것으로 예상된다. 
+  
+# 마무리 말  
+국내 폐기물 발생량 현황을 보았을때, 지속적으로 증가하는데 반해 
+폐기물 처리시설의 부족과 중국의 폐기물 수입금지, 처리비용 증가와 같은 내외문제로 
+폐기물의 무단 방치, 불법투기 및 불법 수출이 발생하고 있다. 
+더 이상 폐기물들을 방치하지 않도록 처리시설 확충을 전제로 민간,공공차원의 지원과 역할이 필요하다.  
+또한 개인적으로 폐기물처리시설에 대한 반감을 줄이고, 모두가 쓰레기 산(방치되는 폐기물)의 심각성을 
+인지하여 하루빨리 폐기물 처리의 문제를 해결해야 한다. 
+
+
+
+
+
+
+
+
+
+
+
+
